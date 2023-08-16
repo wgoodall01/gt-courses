@@ -6,7 +6,7 @@ select
     group_concat(f.name, '; ') as faculty
 from sections
 join course_faculty cf on sections.id = cf.course_id
-join faculty f on cf.faculty_id = f.banner_id
+join faculty f on cf.faculty_id = f.id
 group by subject, number;
 
 select
@@ -19,7 +19,7 @@ select
     group_concat(f.name, '; ') as faculty
 from sections
 join course_faculty cf on sections.id = cf.course_id
-join faculty f on cf.faculty_id = f.banner_id
+join faculty f on cf.faculty_id = f.id
 where
     subject = 'CS'
     and campus like '%Atlanta%'
@@ -33,55 +33,6 @@ order by number;
 
 -- Core courses
 with
-core_courses(subject, number) as
-(values
-    -- Required
-    ('CS', '6515'), -- Intro to Grad Algorithms
-    ('CS', '6505'), -- Computability, Algorithms, and Complexity
-
-    -- Core
-    ('CS', '6210'), -- Operating Systems
-    ('CS', '6241'), -- Compilers
-    ('CS', '6250'), -- Networking
-    ('CS', '6290'), -- Architecture
-    ('CS', '6300'), -- Software Engineering
-    ('CS', '6390'), -- Programming Language Design
-    ('CS', '6400') -- Database Systems
-),
-
-elective_courses(subject, number) as
-(values
-    ('CS', '6035'), -- Introduction to Information Security — TR 5:00 - 6:15
-    ('CS', '6200'), -- Graduate Introduction to Operating Systems — nope
-    ('CS', '6220'), -- Big Data Systems and Analytics —- nope
-    ('CS', '6235'), -- Real-Time System Concepts and Implementation —- nope
-    ('CS', '6238'), -- Secure Computer Systems — TR 12:30 - 1:45
-    ('CS', '6260'), -- Applied Cryptography — nope
-    ('CS', '6262'), -- Network Security — TR 2:00 - 3:15
-    ('CS', '6263'), -- Intro to Cyberphysical Systems Security — nope
-    ('CS', '6291'), -- Embedded Software Optimization — nope
-    ('CS', '6310'), -- Software Architecture and Design — nope
-    ('CS', '6340'), -- Software Analysis and Testing — nope
-    ('CS', '6365'), -- Introduction to Enterprise Computing —-
-    ('CS', '6422'), -- Database System Implementation
-    ('CS', '6550'), -- Design and Analysis of Algorithms
-    ('CS', '6675'), -- Advanced Internet Computing Systems and Applications
-    ('CS', '7210'), -- Distributed Computing
-    ('CS', '7260'), -- Internetworking Architectures and Protocols
-    ('CS', '7270'), -- Networked Applications and Services
-    ('CS', '7280'), -- Network Science
-    ('CS', '7290'), -- Advanced Topics in Microarchitecture
-    ('CS', '7292'), -- Reliability and Security in Computer Architecture
-    ('CS', '7560'), -- Theory of Cryptography
-    ('CS', '8803'), -- Special Topics
-    ('CSE', '6220') -- High Performance Computing
-),
-
-wants(subject, number, why) as (
-    select subject, number, 'Core' from core_courses
-    union
-    select subject, number, 'Elective' from elective_courses
-),
 
 excluded(subject, number) as
 (values
@@ -93,7 +44,7 @@ excluded(subject, number) as
 )
 
 select
-    why,
+    requirements.why,
     crn,
     sections.subject as subject,
     sections.number as number,
@@ -102,8 +53,8 @@ select
     sections.max_enrollment as max_enrollment,
     sections.enrollment as enrollment,
     sections.seats_available
-from wants
-right join sections on wants.subject = sections.subject and wants.number = sections.number
+from sections
+left outer join requirements on requirements.subject = sections.subject and requirements.number = sections.number
 where
     not exists (select * from excluded where excluded.subject = sections.subject and excluded.number = sections.number)
     and sections.subject in ('CS', 'CSE')
@@ -139,20 +90,22 @@ ideas(subject, number, section) as
 )
 
 select
-    crn, subject, number, section, course_title, seats_available,
+    s.crn, s.subject, s.number, s.section, s.course_title, s.seats_available,
+    r.why as why,
     group_concat(f.name, '; ') as faculty
-from sections
-left outer join course_faculty cf on sections.id = cf.course_id
-left outer join faculty f on cf.faculty_id = f.banner_id
+from sections s
+left outer join course_faculty cf on s.id = cf.course_id
+left outer join faculty f on cf.faculty_id = f.id
+left outer join requirements r on s.number = r.number and s.subject = r.subject
 where
     exists (
         select * from ideas
          where
-            ideas.subject = sections.subject
-            and ideas.number = sections.number
-            and (ideas.section is null or ideas.section = sections.section)
+            ideas.subject = s.subject
+            and ideas.number = s.number
+            and (ideas.section is null or ideas.section = s.section)
     )
-    and (sections.campus is null or sections.campus like '%Atlanta%')
-    and (seats_available is null or seats_available > 5)
-group by subject, number, section
-order by subject, number, section;
+    and (s.campus is null or s.campus like '%Atlanta%')
+    and (seats_available is null or seats_available > 0)
+group by s.subject, s.number, s.section
+order by s.subject, s.number, s.section;
