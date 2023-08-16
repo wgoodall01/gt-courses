@@ -102,7 +102,8 @@ jq -r <all_courses.json \
 	| sqlite3 courses.sqlite3 ".import --csv '|cat -' course_faculty"
 
 echo '[+] Importing online-only sections from Qualtrics form...'
-sqlite3 courses.sqlite3 'create table tmp_online_sections(subject text, number text, section text, course_title text)'
+sqlite3 courses.sqlite3 \
+	'create table tmp_online_sections(subject text, number text, section text, course_title text);'
 jq -r <../permit_sections.json  \
 	'
 	.[] 
@@ -114,7 +115,7 @@ jq -r <../permit_sections.json  \
 echo "    Merging in..."
 sqlite3 courses.sqlite3 \
 	'
-	insert into sections (subject, number, section, course_title, campus) 
+	insert into sections (subject, number, section, course_title) 
 	select subject, number, section, course_title from tmp_online_sections;
 	drop table tmp_online_sections;
 	'

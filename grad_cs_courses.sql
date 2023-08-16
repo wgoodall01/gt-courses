@@ -35,7 +35,11 @@ order by number;
 with
 core_courses(subject, number) as
 (values
-    ('CS', '6515'), -- Computability, Algorithms, and Complexity (not technically core, but still required)
+    -- Required
+    ('CS', '6515'), -- Intro to Grad Algorithms
+    ('CS', '6505'), -- Computability, Algorithms, and Complexity
+
+    -- Core
     ('CS', '6210'), -- Operating Systems
     ('CS', '6241'), -- Compilers
     ('CS', '6250'), -- Networking
@@ -114,13 +118,41 @@ order by why, number;
 
 -- Things I'd like to take
 with
-ideas(subject, number) as
+ideas(subject, number, section) as
 (values
-    ('CS', '6515'), -- Computability, Algorithms, and Complexity (not technically core, but still required)
-    ('CS', '6262') -- Network Security
+    ('CS', '6515', null),   -- Computability, Algorithms, and Complexity (not technically core, but still required)
+    ('CS', '6235', null),   -- Real-time systems concepts and implementation
+    ('CS', '6211', null),   -- System design for cloud computing
+    ('CS', '6747', null),   -- Advanced Topics in Malware Analysis
+    ('CS', '7637', null),   -- Knowledge-based AI
+    ('CS', '7650', null),   -- Natural Language
+    ('CSE', '8803', 'EPI'), -- Epidemeology
+    ('CS', '6250', null),   -- Computer networks
+    ('CS', '6260', null),   -- Applied Cryptography
+    ('CS', '6262', null),   -- Network Security
+    ('CS', '6263', null),   -- Intro to Cyber-Physical Systems Security
+    ('CS', '7210', null),   -- Distributed Computing
+    ('CS', '8803', 'CIF'),  -- Critical Infrastructure Security
+    ('CS', '8803', 'EA'),   -- Explainable AI
+    ('CS', '8803', 'SII'),  -- Securing the Internet Infrastructure
+    ('CS', '8803', 'SPD')   -- Security, Privacy, & Democracy
 )
 
-select * from sections
+select
+    crn, subject, number, section, course_title, seats_available,
+    group_concat(f.name, '; ') as faculty
+from sections
+left outer join course_faculty cf on sections.id = cf.course_id
+left outer join faculty f on cf.faculty_id = f.banner_id
 where
-    exists (select * from ideas where ideas.subject = sections.subject and ideas.number = sections.number)
-    and sections.campus like '%Atlanta%';
+    exists (
+        select * from ideas
+         where
+            ideas.subject = sections.subject
+            and ideas.number = sections.number
+            and (ideas.section is null or ideas.section = sections.section)
+    )
+    and (sections.campus is null or sections.campus like '%Atlanta%')
+    and (seats_available is null or seats_available > 5)
+group by subject, number, section
+order by subject, number, section;
