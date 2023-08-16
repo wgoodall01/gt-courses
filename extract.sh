@@ -14,27 +14,29 @@ sqlite3 courses.sqlite3 <<EOF
 pragma foreign_keys = ON;
 
 create table sections (
-	id text not null primary key,
-	term text not null,
-	term_description text not null,
-	crn text not null,
-	number text not null,
-	subject text not null,
-	subject_description text not null,
-	section text not null,
-	campus text not null,
-	schedule_type text not null,
-	course_title not null,
-	credit_hours integer not null,
-	max_enrollment integer not null,
-	enrollment integer not null,
-	seats_available integer not null,
-	waitlist_capacity integer not null,
-	waitlist_count integer not null,
-	waitlist_available integer not null,
-	open boolean not null,
+	id text,
+	term text,
+	term_description text,
+	crn text,
+	number text,
+	subject text,
+	subject_description text,
+	section text,
+	campus text,
+	schedule_type text,
+	course_title,
+	credit_hours integer,
+	max_enrollment integer,
+	enrollment integer,
+	seats_available integer,
+	waitlist_capacity integer,
+	waitlist_count integer,
+	waitlist_available integer,
+	open boolean,
 	attributes text
 );
+
+create index ix_sections_nums on sections(subject, number, section);
 
 create table faculty (
 	banner_id text not null primary key,
@@ -43,8 +45,8 @@ create table faculty (
 );
 
 create table course_faculty (
-	course_id text not null references sections(id),
-	faculty_id text not null references faculty(banner_id),
+	course_id text not null,
+	faculty_id text not null,
 	primary key (course_id, faculty_id)
 );
 
@@ -98,6 +100,25 @@ jq -r <all_courses.json \
 		| @csv
 	'\
 	| sqlite3 courses.sqlite3 ".import --csv '|cat -' course_faculty"
+
+echo '[+] Importing online-only sections from Qualtrics form...'
+sqlite3 courses.sqlite3 'create table tmp_online_sections(subject text, number text, section text, course_title text)'
+jq -r <../permit_sections.json  \
+	'
+	.[] 
+	| select(test("AO|REMOTE")) 
+	| split(" ") 
+	| [.[0], .[1], .[2], (.[3:-2] | join(" "))]
+	| @csv'\
+	| sqlite3 courses.sqlite3 ".import --csv '|cat -' tmp_online_sections"
+echo "    Merging in..."
+sqlite3 courses.sqlite3 \
+	'
+	insert into sections (subject, number, section, course_title, campus) 
+	select subject, number, section, course_title from tmp_online_sections;
+	drop table tmp_online_sections;
+	'
+
 
 echo "[+] Check validity..."
 sqlite3 courses.sqlite3 <<EOF
