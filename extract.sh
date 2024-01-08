@@ -33,7 +33,8 @@ create table sections (
 	waitlist_count integer not null,
 	waitlist_available integer not null,
 	open boolean not null,
-	attributes text
+	attributes text,
+	raw json not null
 );
 
 create index ix_sections_nums on sections(subject, number, section);
@@ -84,7 +85,8 @@ jq -r <all_courses.json \
 			.waitCount,
 			.waitAvailable,
 			.openSection,
-			([.sectionAttributes[].code] | join(","))
+			([.sectionAttributes[].code] | join(",")),
+			tojson
 		] | @csv
 	'\
 	| sqlite3 courses.sqlite3 ".import --csv '|cat -' sections"
@@ -123,3 +125,9 @@ echo '[+] Tidy up...'
 sqlite3 courses.sqlite3 <<EOF
 update sections set attributes = null where attributes = '';
 EOF
+
+echo '[+] Create views...'
+sqlite3 courses.sqlite3 <../views.sql
+
+echo '[+] Vaccuum...'
+sqlite3 courses.sqlite3 'vacuum;'

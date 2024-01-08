@@ -32,7 +32,7 @@ curl 'https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/classSea
 	-H 'Cache-Control: no-cache' \
 	| jq -r '.[] | "    \(.code)    \(.description)"'
 
-term="202308"
+term="202402"
 echo "    Using term: ${term}"
 
 echo '[+] POST search (initialize session)'
